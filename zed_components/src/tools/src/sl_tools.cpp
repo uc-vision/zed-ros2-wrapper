@@ -493,12 +493,16 @@ std::string threadSched2Str(int thread_sched_policy)
 #ifdef __USE_GNU
     case SCHED_BATCH:
       return "SCHED_BATCH";
+#ifdef SCHED_ISO
     case SCHED_ISO:
       return "SCHED_ISO";
+#endif
     case SCHED_IDLE:
       return "SCHED_IDLE";
+#ifdef SCHED_DEADLINE
     case SCHED_DEADLINE:
       return "SCHED_DEADLINE";
+#endif
 #endif
     default:
       return "";
