@@ -235,6 +235,19 @@ def launch_setup(context, *args, **kwargs):
     )
     return_array.append(rsp_node)
 
+
+    rviz2_node = Node(  
+      package='rviz2',
+      namespace=camera_name_val,
+      executable='rviz2',
+      name=camera_model_val +'_rviz2',
+      output='screen',
+      arguments=[['-d'], ['/local/pruning_workspace/src/zed-ros-wrapper/zed_wrapper/config/zedm.rviz']],
+      parameters=[{'use_sim_time': publish_svo_clock}]
+    )
+
+    return_array.append(rviz2_node)
+
     # ROS 2 Component Container
     if(container_name_val == ''):
         container_name_val='zed_container'
