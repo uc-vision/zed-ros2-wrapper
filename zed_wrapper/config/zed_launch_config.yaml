@@ -1,0 +1,15 @@
+# ZED Camera Launch Configuration
+# This file determines which launch configuration to use
+
+# Mode selection: "single" or "multi"
+mode: "multi"
+
+# Single camera configuration (used when mode: "single")
+single_camera:
+  camera_model: "zedm"  # Required: zed, zedm, zed2, zed2i, zedx, zedxm
+
+# Multi camera configuration (used when mode: "multi")
+multi_camera:
+  cam_names: ["zed_left", "zed_right"]
+  cam_models: ["zedm", "zedm"]
+  cam_serials: [17296654, 15759272]
