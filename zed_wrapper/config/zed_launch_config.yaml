@@ -10,6 +10,6 @@ single_camera:
 
 # Multi camera configuration (used when mode: "multi")
 multi_camera:
-  cam_names: ["zed_left", "zed_right"]
+  cam_names: ["front_zed", "back_zed"]
   cam_models: ["zedm", "zedm"]
   cam_serials: [17296654, 15759272]
