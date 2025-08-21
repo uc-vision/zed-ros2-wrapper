@@ -22,8 +22,12 @@ from launch.actions import (
     DeclareLaunchArgument,
     OpaqueFunction,
     IncludeLaunchDescription,
-    LogInfo
+    LogInfo,
+    TimerAction,
+    SetEnvironmentVariable,
+    RegisterEventHandler
 )
+from launch.event_handlers import OnProcessStart
 from launch.substitutions import (
     LaunchConfiguration,
     TextSubstitution
@@ -44,6 +48,9 @@ def launch_setup(context, *args, **kwargs):
 
     # List of actions to be launched
     actions = []
+
+    # Force a safe default image transport at startup to avoid plugin race/loading issues
+    actions.append(SetEnvironmentVariable(name='ROS_IMAGE_TRANSPORT', value='raw'))
 
     namespace_val = 'zed_multi'
     
@@ -71,27 +78,17 @@ def launch_setup(context, *args, **kwargs):
                 text='The `cam_serials` or `cam_ids` array argument must match the size of the `cam_names` array argument.'))
         ]
     
-    # ROS 2 Component Container
+    # Do not create a single shared container; instead, create one per camera for isolation
+    # container_name is used as a base for per-camera containers
     container_name = 'zed_multi_container'
     distro = os.environ['ROS_DISTRO']
     if distro == 'foxy':
-        # Foxy does not support the isolated mode
         container_exec='component_container'
     else:
         container_exec='component_container_isolated'
     
     info = '* Starting Composable node container: /' + namespace_val + '/' + container_name
     actions.append(LogInfo(msg=TextSubstitution(text=info)))
-
-    zed_container = ComposableNodeContainer(
-        name=container_name,
-        namespace=namespace_val,
-        package='rclcpp_components',
-        executable=container_exec,
-        arguments=['--ros-args', '--log-level', 'info'],
-        output='screen',
-    )
-    actions.append(zed_container)
 
     # Set the first camera idx
     cam_idx = 0
@@ -121,6 +118,18 @@ def launch_setup(context, *args, **kwargs):
         # TF publishing is permanently disabled
         publish_tf = 'false'
 
+        # Per-camera container for better isolation of pluginlib loading
+        per_cam_container_name = f"{container_name}_{name}"
+        per_cam_container = ComposableNodeContainer(
+            name=per_cam_container_name,
+            namespace=namespace_val,
+            package='rclcpp_components',
+            executable=container_exec,
+            arguments=['--ros-args', '--log-level', 'info'],  # keep single-threaded to reduce races
+            output='screen',
+        )
+        actions.append(per_cam_container)
+
         # ZED Wrapper launch file
         zed_wrapper_launch = IncludeLaunchDescription(
             launch_description_source=PythonLaunchDescriptionSource([
@@ -128,7 +137,7 @@ def launch_setup(context, *args, **kwargs):
                 '/launch/zed_camera.launch.py'
             ]),
             launch_arguments={
-                'container_name': container_name,
+                'container_name': per_cam_container_name,
                 'camera_name': name,
                 'camera_model': model,
                 'serial_number': serial,
@@ -138,7 +147,19 @@ def launch_setup(context, *args, **kwargs):
                 'namespace': namespace_val
             }.items()
         )
-        actions.append(zed_wrapper_launch)
+
+        # Load the component only after the per-camera container process is up
+        actions.append(
+            RegisterEventHandler(
+                OnProcessStart(
+                    target_action=per_cam_container,
+                    on_start=[
+                        # Slight stagger between cameras to be extra safe
+                        TimerAction(period=0.3 * (cam_idx + 1), actions=[zed_wrapper_launch])
+                    ],
+                )
+            )
+        )
 
         cam_idx += 1
 
