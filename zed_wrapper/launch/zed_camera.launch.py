@@ -267,7 +267,7 @@ def launch_setup(context, *args, **kwargs):
     ]
 
     if( ros_params_override_path_val != ''):
-        node_parameters.append(ros_params_override_path)
+        node_parameters.append(ros_params_override)
 
     node_parameters.append( 
             # Launch arguments must override the YAML files values
@@ -290,6 +290,13 @@ def launch_setup(context, *args, **kwargs):
                 'gnss_fusion.gnss_fusion_enabled': enable_gnss
             }
     )
+
+    # Ensure only raw image_transport plugins are used at startup to avoid
+    # intermittent plugin loading issues for compressed publishers
+    node_parameters.append({
+        'image_transport/publisher_plugins': ['raw'],
+        'image_transport/subscriber_plugins': ['raw']
+    })
 
 
     # ZED Wrapper component
@@ -384,7 +391,7 @@ def generate_launch_description():
                 choices=['true', 'false']),
             DeclareLaunchArgument(
                 'publish_tf',
-                default_value='true',
+                default_value='false',
                 description='Enable publication of the `odom -> camera_link` TF.',
                 choices=['true', 'false']),
             DeclareLaunchArgument(
